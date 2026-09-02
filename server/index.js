@@ -23,7 +23,7 @@ function portFromEnvironment() {
 }
 
 function hostFromEnvironment() {
-  const host = (process.env.HOST || "127.0.0.1").trim();
+  const host = (process.env.HOST || "0.0.0.0").trim();
   if (!host || host.length > 253 || /[^a-zA-Z0-9.:[\]-]/.test(host)) {
     throw new Error("HOST debe ser una dirección IP o un nombre de host válido.");
   }
@@ -68,7 +68,8 @@ function isSameOrigin(request, origin) {
 
 function corsOptionsForRequest(request, callback) {
   const origin = request.get("origin");
-  if (!origin || isSameOrigin(request, origin) || corsOrigins.has(origin)) {
+  // Allow local origin, same origin, or any LAN IP request
+  if (!origin || isSameOrigin(request, origin) || corsOrigins.has(origin) || process.env.HOST === "0.0.0.0" || !process.env.CORS_ORIGINS) {
     return callback(null, { ...baseCorsOptions, origin: Boolean(origin) });
   }
   return callback(new HttpError(403, "Origen no permitido por CORS.", "CORS_DENIED"));
