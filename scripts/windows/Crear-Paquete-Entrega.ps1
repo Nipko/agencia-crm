@@ -19,10 +19,9 @@ if (Test-Path $ZipFile) {
     Remove-Item $ZipFile -Force
 }
 
-$Exclude = @("*.git*", "*entrega*", "*.tmp", "*.log")
-
 Write-Host "[1/2] Comprimiendo archivos del proyecto en $ZipFile..." -ForegroundColor Green
-Compress-Archive -Path "$ProjectRoot\*" -DestinationPath $ZipFile -Force
+$itemsToZip = Get-ChildItem -Path $ProjectRoot -Exclude "entrega", ".git", "node_modules", "*.tmp", "*.log" | Select-Object -ExpandProperty FullName
+Compress-Archive -Path $itemsToZip -DestinationPath $ZipFile -Force
 
 Write-Host "[2/2] Generando checksum SHA256 de verificacion de integridad..." -ForegroundColor Green
 $hash = Get-FileHash -Path $ZipFile -Algorithm SHA256

@@ -30,57 +30,19 @@ function hostFromEnvironment() {
   return host;
 }
 
-function allowedOrigins() {
-  const configured = process.env.CORS_ORIGINS
-    ?.split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+export const app = express();
+app.disable("x-powered-by");
 
-  return new Set(
-    configured?.length
-      ? configured
-      : [
-          "http://localhost:5173",
-          "http://127.0.0.1:5173",
-          "http://localhost:4000",
-          "http://127.0.0.1:4000"
-        ]
-  );
-}
-
-const corsOrigins = allowedOrigins();
-const baseCorsOptions = {
-  credentials: false,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Authorization", "Content-Type", "X-Request-Id"],
-  maxAge: 600
-};
-
-function isSameOrigin(request, origin) {
-  if (!origin) return true;
-  try {
-    const parsedOrigin = new URL(origin);
-    return parsedOrigin.protocol === `${request.protocol}:` && parsedOrigin.host === request.get("host");
-  } catch {
-    return false;
-  }
-}
-
-function corsOptionsForRequest(request, callback) {
-  return callback(null, {
+// Allow CORS for all routes (API + Static Assets) in local network
+app.use(
+  cors({
     origin: true,
     credentials: false,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Authorization", "Content-Type", "X-Request-Id"],
     maxAge: 600
-  });
-}
-
-export const app = express();
-app.disable("x-powered-by");
-
-// Allow CORS for all routes (API + Static Assets)
-app.use(cors(corsOptionsForRequest));
+  })
+);
 
 app.use((request, response, next) => {
   const suppliedRequestId = request.get("x-request-id");
@@ -111,7 +73,7 @@ const healthHandler = asyncRoute(async (_request, response) => {
 });
 
 app.get("/health", healthHandler);
-app.use("/api", cors(corsOptionsForRequest), apiRouter);
+app.use("/api", apiRouter);
 app.use("/api", (request, response) => {
   response.status(404).json({
     error: "Endpoint no encontrado.",
