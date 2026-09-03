@@ -67,16 +67,20 @@ function isSameOrigin(request, origin) {
 }
 
 function corsOptionsForRequest(request, callback) {
-  const origin = request.get("origin");
-  // Allow local origin, same origin, or any LAN IP request
-  if (!origin || isSameOrigin(request, origin) || corsOrigins.has(origin) || process.env.HOST === "0.0.0.0" || !process.env.CORS_ORIGINS) {
-    return callback(null, { ...baseCorsOptions, origin: Boolean(origin) });
-  }
-  return callback(new HttpError(403, "Origen no permitido por CORS.", "CORS_DENIED"));
+  return callback(null, {
+    origin: true,
+    credentials: false,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type", "X-Request-Id"],
+    maxAge: 600
+  });
 }
 
 export const app = express();
 app.disable("x-powered-by");
+
+// Allow CORS for all routes (API + Static Assets)
+app.use(cors(corsOptionsForRequest));
 
 app.use((request, response, next) => {
   const suppliedRequestId = request.get("x-request-id");
@@ -88,22 +92,8 @@ app.use((request, response, next) => {
   response.set({
     "X-Request-Id": request.id,
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
     "Referrer-Policy": "strict-origin-when-cross-origin",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-    "Cross-Origin-Resource-Policy": "same-origin",
-    "Content-Security-Policy": [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "frame-ancestors 'none'",
-      "form-action 'self'",
-      "object-src 'none'",
-      "script-src 'self'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
-      "font-src 'self' data:",
-      "connect-src 'self'"
-    ].join("; ")
+    "Cross-Origin-Resource-Policy": "cross-origin"
   });
   next();
 });
