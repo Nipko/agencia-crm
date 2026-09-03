@@ -10,6 +10,23 @@ echo =========================================================================
 echo Carpeta: %CD%
 echo.
 
+:: Verificar si el servidor ya esta corriendo en el puerto 4000
+netstat -ano | findstr /R /C:":4000 .*LISTENING" >nul 2>nul
+if not errorlevel 1 (
+    echo =========================================================================
+    echo [INFO] El servidor Planetour CRM YA se encuentra activo y corriendo!
+    echo =========================================================================
+    echo.
+    echo  - Acceso Local Servidor:    http://localhost:4000
+    echo  - Estado de la API:         http://localhost:4000/api/health
+    echo.
+    echo  (Si deseas reiniciarlo, ejecuta el archivo: detener-servidor.bat)
+    echo =========================================================================
+    echo.
+    pause
+    exit /b 0
+)
+
 if not exist "scripts\windows" mkdir "scripts\windows"
 
 if not exist "scripts\windows\Servicio-Planetour.ps1" (
