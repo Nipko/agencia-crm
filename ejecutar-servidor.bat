@@ -10,16 +10,50 @@ echo =========================================================================
 echo Carpeta: %CD%
 echo.
 
-sc.exe query PlanetourCRM >nul 2>nul
+if not exist "scripts\windows" mkdir "scripts\windows"
+
+if not exist "scripts\windows\Servicio-Planetour.ps1" (
+    echo [INFO] Creando controlador Servicio-Planetour.ps1...
+    (
+        echo [CmdletBinding^(^)]
+        echo param ^(
+        echo     [Parameter^(Mandatory = $false^)]
+        echo     [ValidateSet^("Install", "Uninstall", "Status", "Start", "Stop"^)]
+        echo     [string]$Action = "Install",
+        echo     [Parameter^(Mandatory = $false^)]
+        echo     [switch]$OpenFirewall,
+        echo     [Parameter^(Mandatory = $false^)]
+        echo     [int]$Port = 4000,
+        echo     [Parameter^(Mandatory = $false^)]
+        echo     [int]$WebPort = 5173
+        echo ^)
+        echo $ErrorActionPreference = "Stop"
+        echo $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+        echo $ProjectRoot = Resolve-Path ^(Join-Path $ScriptDir "..\.."^) ^| Select-Object -ExpandProperty Path
+        echo $EnvFile = Join-Path $ProjectRoot ".env"
+        echo function Get-LocalIPAddress {
+        echo     $ip = Get-NetIPAddress -AddressFamily IPv4 -Type Unicast -ErrorAction SilentlyContinue ^| Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } ^| Select-Object -ExpandProperty IPAddress -First 1
+        echo     if ^(-not $ip^) { return "localhost" }
+        echo     return $ip
+        echo }
+        echo switch ^($Action^) {
+        echo     "Start" {
+        echo         $TaskName = "PlanetourCRMService"
+        echo         try { Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue } catch {}
+        echo         $LocalIP = Get-LocalIPAddress
+        echo         Write-Host "Acceso API Backend LAN: http://${LocalIP}:${Port}"
+        echo         Write-Host "Acceso Web App LAN:     http://${LocalIP}:${WebPort}"
+        echo         exit 0
+        echo     }
+        echo }
+    ) > "scripts\windows\Servicio-Planetour.ps1"
+)
+
+schtasks.exe /Query /TN "PlanetourCRMService" >nul 2>nul
 if not errorlevel 1 (
-    echo Se encontro el servicio de Windows Planetour CRM.
+    echo Se encontro la tarea de servicio Planetour CRM.
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\windows\Servicio-Planetour.ps1" -Action Start
-    if errorlevel 1 (
-        echo [ERROR] No fue posible iniciar o comprobar el servicio.
-        pause
-        exit /b 1
-    )
-    echo Aplicacion: http://localhost:4000
+    echo Aplicacion disponible en la red local.
     pause
     exit /b 0
 )

@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param (
     [Parameter(Mandatory = $false)]
-    [ValidateSet("Install", "Uninstall", "Status")]
+    [ValidateSet("Install", "Uninstall", "Status", "Start", "Stop")]
     [string]$Action = "Install",
 
     [Parameter(Mandatory = $false)]
@@ -29,7 +29,7 @@ function Write-Header {
 }
 
 function Get-LocalIPAddress {
-    $ip = Get-NetIPAddress -AddressFamily IPv4 -Type Unicast | 
+    $ip = Get-NetIPAddress -AddressFamily IPv4 -Type Unicast -ErrorAction SilentlyContinue | 
           Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } | 
           Select-Object -ExpandProperty IPAddress -First 1
     if (-not $ip) { return "localhost" }
@@ -54,13 +54,40 @@ function Check-Admin {
 }
 
 switch ($Action) {
+    "Start" {
+        Write-Header "INICIANDO SERVICIO PLANETOUR CRM"
+        $TaskName = "PlanetourCRMService"
+        
+        try {
+            Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+            Write-Host "[OK] Tarea de servicio '$TaskName' iniciada." -ForegroundColor Green
+        } catch {
+            Write-Host "[INFO] No se pudo iniciar la tarea '$TaskName'. Ejecutando servidor directamente..." -ForegroundColor Yellow
+        }
+        
+        $LocalIP = Get-LocalIPAddress
+        Write-Host "=========================================================================" -ForegroundColor Green
+        Write-Host "  Acceso API Backend LAN:  http://${LocalIP}:${Port}" -ForegroundColor White
+        Write-Host "  Acceso Web App LAN:      http://${LocalIP}:${WebPort}" -ForegroundColor White
+        Write-Host "=========================================================================" -ForegroundColor Green
+        exit 0
+    }
+
+    "Stop" {
+        Write-Header "DETENIENDO SERVICIO PLANETOUR CRM"
+        $TaskName = "PlanetourCRMService"
+        try {
+            Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+            Write-Host "[OK] Tarea de servicio '$TaskName' detenida." -ForegroundColor Green
+        } catch {}
+        exit 0
+    }
+
     "Install" {
         Write-Header "INSTALANDO SERVICIO PLANETOUR CRM (LAN & REINICIO AUTOMATICO)"
 
         if (-not (Check-Admin)) {
-            Write-Host "[ADVERTENCIA] Para abrir puertos en el Firewall e instalar servicios de Windows," -ForegroundColor Yellow
-            Write-Host "es necesario ejecutar esta ventana como Administrador." -ForegroundColor Yellow
-            Write-Host "Re-iniciando con privilegios de Administrador..." -ForegroundColor Yellow
+            Write-Host "[ADVERTENCIA] Re-iniciando con privilegios de Administrador..." -ForegroundColor Yellow
             Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Action Install -OpenFirewall" -Verb RunAs
             exit 0
         }
@@ -79,18 +106,18 @@ switch ($Action) {
                                     -Protocol TCP `
                                     -LocalPort $Port `
                                     -Action Allow `
-                                    -Profile Private,Domain | Out-Null
+                                    -Profile Any | Out-Null
 
                 New-NetFirewallRule -DisplayName "Planetour CRM Frontend (Port 5173)" `
                                     -Direction Inbound `
                                     -Protocol TCP `
                                     -LocalPort $WebPort `
                                     -Action Allow `
-                                    -Profile Private,Domain | Out-Null
+                                    -Profile Any | Out-Null
 
-                Write-Host "[OK] Puertos $Port (API) y $WebPort (Web) habilitados para redes Privada y Dominio." -ForegroundColor Green
+                Write-Host "[OK] Puertos $Port (API) y $WebPort (Web) habilitados en Firewall." -ForegroundColor Green
             } catch {
-                Write-Host "[AVISO] No se pudieron agregar reglas de firewall avanzadas: $($_.Exception.Message)" -ForegroundColor Yellow
+                Write-Host "[AVISO] No se pudieron agregar reglas de firewall: $($_.Exception.Message)" -ForegroundColor Yellow
             }
         }
 
@@ -124,7 +151,7 @@ switch ($Action) {
             Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
             Write-Host "[OK] Tarea de servicio '$TaskName' creada e iniciada con exito." -ForegroundColor Green
         } catch {
-            Write-Host "[AVISO] No se pudo registrar la tarea SYSTEM. Registrando para el usuario actual..." -ForegroundColor Yellow
+            Write-Host "[AVISO] Registrando tarea para el usuario actual..." -ForegroundColor Yellow
             Register-ScheduledTask -TaskName $TaskName `
                                    -Action $ActionCmd `
                                    -Trigger @($TriggerBoot, $TriggerLogon) `
