@@ -74,11 +74,9 @@ if not exist ".git" (
         pause
         exit /b 1
     )
-    git branch -M %BRANCH%
-    attrib -r /s "scripts\windows\*" >nul 2>nul
-    if exist "scripts\windows\Servicio-Planetour.ps1" del /f /q "scripts\windows\Servicio-Planetour.ps1" >nul 2>nul
-    git reset --hard origin/%BRANCH%
-    git branch --set-upstream-to=origin/%BRANCH% %BRANCH%
+    del /f /q ".git\index.lock" >nul 2>nul
+    attrib -r /s "*.*" >nul 2>nul
+    git checkout -f -B %BRANCH% origin/%BRANCH%
 ) else (
     git remote get-url origin >nul 2>nul
     if errorlevel 1 (
@@ -92,9 +90,9 @@ if not exist ".git" (
         pause
         exit /b 1
     )
-    attrib -r /s "scripts\windows\*" >nul 2>nul
-    if exist "scripts\windows\Servicio-Planetour.ps1" del /f /q "scripts\windows\Servicio-Planetour.ps1" >nul 2>nul
-    git reset --hard origin/%BRANCH%
+    del /f /q ".git\index.lock" >nul 2>nul
+    attrib -r /s "*.*" >nul 2>nul
+    git checkout -f -B %BRANCH% origin/%BRANCH%
 )
 if errorlevel 1 (
     echo [ERROR] Hubo un error al actualizar los archivos con Git.

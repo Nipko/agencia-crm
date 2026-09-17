@@ -98,11 +98,9 @@ if (-not (Test-Path (Join-Path $ProjectRoot ".git"))) {
         Write-Host "[ERROR] No fue posible conectar con el repositorio $RepoUrl." -ForegroundColor Red
         exit 1
     }
-    git branch -M $Branch
-    Get-ChildItem -Path (Join-Path $ProjectRoot "scripts\windows") -File -ErrorAction SilentlyContinue | ForEach-Object { $_.IsReadOnly = $false }
-    Remove-Item -Path (Join-Path $ProjectRoot "scripts\windows\Servicio-Planetour.ps1") -Force -ErrorAction SilentlyContinue
-    git reset --hard "origin/$Branch"
-    git branch --set-upstream-to="origin/$Branch" $Branch
+    Remove-Item -Path (Join-Path $ProjectRoot ".git\index.lock") -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.IsReadOnly = $false }
+    git checkout -f -B $Branch "origin/$Branch"
 } else {
     try {
         $origin = git remote get-url origin 2>$null
@@ -119,9 +117,9 @@ if (-not (Test-Path (Join-Path $ProjectRoot ".git"))) {
         Write-Host "[ERROR] No fue posible conectar con el repositorio remoto '$RepoUrl'." -ForegroundColor Red
         exit 1
     }
-    Get-ChildItem -Path (Join-Path $ProjectRoot "scripts\windows") -File -ErrorAction SilentlyContinue | ForEach-Object { $_.IsReadOnly = $false }
-    Remove-Item -Path (Join-Path $ProjectRoot "scripts\windows\Servicio-Planetour.ps1") -Force -ErrorAction SilentlyContinue
-    git reset --hard "origin/$Branch"
+    Remove-Item -Path (Join-Path $ProjectRoot ".git\index.lock") -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -Path $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.IsReadOnly = $false }
+    git checkout -f -B $Branch "origin/$Branch"
 }
 
 if ($LASTEXITCODE -ne 0) {
