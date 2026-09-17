@@ -112,14 +112,12 @@ if (-not (Test-Path (Join-Path $ProjectRoot ".git"))) {
         git remote add origin $RepoUrl
     }
 
-    git fetch origin $Branch
+    git pull origin $Branch
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] No fue posible conectar con el repositorio remoto '$RepoUrl'." -ForegroundColor Red
-        exit 1
+        Write-Host "[AVISO] Sincronizando rama '$Branch'..." -ForegroundColor Yellow
+        git checkout -f $Branch
+        git pull origin $Branch
     }
-    Remove-Item -Path (Join-Path $ProjectRoot ".git\index.lock") -Force -ErrorAction SilentlyContinue
-    Get-ChildItem -Path $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.IsReadOnly = $false }
-    git checkout -f -B $Branch "origin/$Branch"
 }
 
 if ($LASTEXITCODE -ne 0) {

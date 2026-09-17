@@ -83,16 +83,12 @@ if not exist ".git" (
         echo [INFO] Configurando origen remoto: %REPO_URL% ...
         git remote add origin %REPO_URL%
     )
-    git fetch origin %BRANCH%
+    git pull origin %BRANCH%
     if errorlevel 1 (
-        echo [ERROR] No fue posible conectar con el repositorio remoto.
-        echo Verifica la conexion a Internet o los permisos de Git.
-        pause
-        exit /b 1
+        echo [AVISO] Sincronizando rama local %BRANCH%...
+        git checkout -f %BRANCH% >nul 2>nul
+        git pull origin %BRANCH%
     )
-    del /f /q ".git\index.lock" >nul 2>nul
-    attrib -r /s "*.*" >nul 2>nul
-    git checkout -f -B %BRANCH% origin/%BRANCH%
 )
 if errorlevel 1 (
     echo [ERROR] Hubo un error al actualizar los archivos con Git.
