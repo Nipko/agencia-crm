@@ -124,6 +124,16 @@ function normalizedError(error) {
 
   switch (error?.code) {
     case "23505":
+      if (
+        error?.constraint?.toLowerCase().includes("nit") ||
+        error?.detail?.toLowerCase().includes("nit")
+      ) {
+        return new HttpError(
+          409,
+          "Ya existe una agencia o cliente registrado con ese NIT.",
+          "DUPLICATE_NIT"
+        );
+      }
       return new HttpError(409, "Ya existe un registro con esos datos únicos.", "DUPLICATE_RECORD");
     case "23503":
       return new HttpError(

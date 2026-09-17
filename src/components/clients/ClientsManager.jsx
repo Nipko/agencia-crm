@@ -6,7 +6,10 @@ import {
   CreditCard,
   Plus,
   Eye,
-  Edit
+  Edit,
+  Trash2,
+  AlertTriangle,
+  LoaderCircle
 } from "lucide-react";
 import { ClientDetailModal } from "./ClientDetailModal";
 import { ClientFormModal } from "./ClientFormModal";
@@ -25,10 +28,19 @@ const normalizeSearch = (value) =>
     .trim();
 
 export const ClientsManager = () => {
-  const { clients, searchTerm, setSelectedClientForModal, selectedClientForModal, canManageClients } = useApp();
+  const {
+    clients,
+    searchTerm,
+    setSelectedClientForModal,
+    selectedClientForModal,
+    canManageClients,
+    deleteClient
+  } = useApp();
   const [filterType, setFilterType] = useState("ALL"); // ALL | AGENCY | GOVERNMENT
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [clientToEdit, setClientToEdit] = useState(null);
+  const [clientToDelete, setClientToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
   const clientCounts = useMemo(
@@ -200,17 +212,30 @@ export const ClientsManager = () => {
                 <Eye className="w-3.5 h-3.5 text-indigo-400" /> Ficha 360° & Firmas
               </button>
 
-              <button
-                onClick={() => {
-                  setClientToEdit(client);
-                  setShowCreateModal(true);
-                }}
-                disabled={!canManageClients}
-                className="btn-icon"
-                title={!canManageClients ? "Tu rol no permite gestionar clientes" : "Editar datos"}
-              >
-                <Edit className="w-4 h-4 text-gray-300" />
-              </button>
+              {canManageClients && (
+                <>
+                  <button
+                    onClick={() => {
+                      setClientToEdit(client);
+                      setShowCreateModal(true);
+                    }}
+                    className="btn-secondary text-xs py-2 px-2.5 flex items-center gap-1 text-indigo-300 hover:text-white"
+                    title="Actualizar datos de la agencia"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Actualizar</span>
+                  </button>
+
+                  <button
+                    onClick={() => setClientToDelete(client)}
+                    className="btn-danger text-xs py-2 px-2.5 flex items-center gap-1"
+                    title="Eliminar agencia del sistema"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Eliminar</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ))}
@@ -231,6 +256,15 @@ export const ClientsManager = () => {
         <ClientDetailModal
           client={selectedClientForModal}
           onClose={() => setSelectedClientForModal(null)}
+          onEditClient={(client) => {
+            setSelectedClientForModal(null);
+            setClientToEdit(client);
+            setShowCreateModal(true);
+          }}
+          onDeleteClient={(client) => {
+            setSelectedClientForModal(null);
+            setClientToDelete(client);
+          }}
         />
       )}
 
@@ -242,6 +276,68 @@ export const ClientsManager = () => {
             setClientToEdit(null);
           }}
         />
+      )}
+
+      {/* Modal de confirmación de eliminación */}
+      {clientToDelete && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-content max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">¿Eliminar esta agencia?</h3>
+                <p className="text-xs text-gray-400">Acción exclusiva para administradores</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-900/80 border border-white/5 space-y-1.5 text-xs">
+              <p className="text-gray-300">
+                Estás a punto de eliminar permanentemente a:
+              </p>
+              <p className="text-sm font-bold text-white">{clientToDelete.name}</p>
+              <p className="text-gray-400 font-mono text-[11px]">NIT: {clientToDelete.nit}</p>
+              <div className="pt-2 border-t border-white/5 text-amber-400/90 text-[11px] flex items-start gap-1.5">
+                <span className="shrink-0 font-bold">⚠️</span>
+                <span>
+                  Se eliminarán también sus firmas GDS asignadas, contratos estatales y registros contables vinculados.
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setClientToDelete(null)}
+                disabled={isDeleting}
+                className="btn-secondary text-xs disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (isDeleting) return;
+                  setIsDeleting(true);
+                  try {
+                    const res = await deleteClient(clientToDelete.id);
+                    if (res?.success) {
+                      setClientToDelete(null);
+                    }
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="btn-danger text-xs flex items-center gap-1.5 disabled:opacity-60"
+              >
+                {isDeleting ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {isDeleting ? "Eliminando..." : "Sí, eliminar agencia"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

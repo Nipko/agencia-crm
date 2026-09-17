@@ -443,6 +443,38 @@ export const AppProvider = ({ children }) => {
     [addToast, canManageClients, handleMutationError]
   );
 
+  const deleteClient = useCallback(
+    async (clientId) => {
+      if (!canManageClients) {
+        const error = "Tu rol no permite eliminar clientes.";
+        addToast("warning", error);
+        return { success: false, error };
+      }
+      const clientToDelete = clients.find((client) => client.id === clientId);
+      const clientName = clientToDelete?.name || "Agencia";
+
+      try {
+        const response = await api.remove("clients", clientId);
+        setClients((previous) => previous.filter((client) => client.id !== clientId));
+        setSignatures((previous) => previous.filter((signature) => signature.clientId !== clientId));
+        setContracts((previous) => previous.filter((contract) => contract.clientId !== clientId));
+        setKaringLedger((previous) => previous.filter((invoice) => invoice.clientId !== clientId));
+
+        if (selectedClientForModal?.id === clientId) {
+          setSelectedClientForModal(null);
+        }
+
+        const details = response?.deletedDetails;
+        const detailsSuffix = details?.signatures > 0 ? ` (se liberaron ${details.signatures} firmas GDS)` : "";
+        addToast("warning", `Agencia "${clientName}" eliminada correctamente.${detailsSuffix}`);
+        return { success: true, data: response };
+      } catch (error) {
+        return handleMutationError(error, "No fue posible eliminar la agencia.");
+      }
+    },
+    [addToast, canManageClients, clients, handleMutationError, selectedClientForModal?.id]
+  );
+
   const addSignature = useCallback(
     async (signatureData) => {
       if (!canManageSignatures) {
@@ -581,6 +613,7 @@ export const AppProvider = ({ children }) => {
       addToast,
       toggleSignatureStatus,
       saveClient,
+      deleteClient,
       addSignature,
       saveContract,
       saveSystem,
@@ -628,6 +661,7 @@ export const AppProvider = ({ children }) => {
       addToast,
       toggleSignatureStatus,
       saveClient,
+      deleteClient,
       addSignature,
       saveContract,
       saveSystem,

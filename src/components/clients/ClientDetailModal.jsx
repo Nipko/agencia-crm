@@ -15,7 +15,9 @@ import {
   MapPin,
   MessageSquare,
   AlertCircle,
-  LoaderCircle
+  LoaderCircle,
+  Edit,
+  Trash2
 } from "lucide-react";
 
 const copFormatter = new Intl.NumberFormat("es-CO", {
@@ -24,7 +26,7 @@ const copFormatter = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0
 });
 
-export const ClientDetailModal = ({ client, onClose }) => {
+export const ClientDetailModal = ({ client, onClose, onEditClient, onDeleteClient }) => {
   const {
     signatures,
     toggleSignatureStatus,
@@ -33,6 +35,7 @@ export const ClientDetailModal = ({ client, onClose }) => {
     systems,
     addSignature,
     canManageSignatures,
+    canManageClients,
     karingConfig
   } = useApp();
   const [activeTab, setActiveTab] = useState("contacts"); // 'contacts' | 'signatures' | 'karing' | 'contracts'
@@ -154,12 +157,39 @@ export const ClientDetailModal = ({ client, onClose }) => {
             </p>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-slate-800 text-gray-400 hover:text-white flex items-center justify-center transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {canManageClients && (
+              <>
+                {onEditClient && (
+                  <button
+                    type="button"
+                    onClick={() => onEditClient(client)}
+                    className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 text-indigo-300 hover:text-white"
+                    title="Actualizar datos de esta agencia"
+                  >
+                    <Edit className="w-3.5 h-3.5" /> Actualizar Agencia
+                  </button>
+                )}
+                {onDeleteClient && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteClient(client)}
+                    className="btn-danger text-xs py-1.5 px-3 flex items-center gap-1.5"
+                    title="Eliminar esta agencia del sistema"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                  </button>
+                )}
+              </>
+            )}
+
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-slate-800 text-gray-400 hover:text-white flex items-center justify-center transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Financial Highlights Bar */}

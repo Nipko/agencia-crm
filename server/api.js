@@ -795,11 +795,51 @@ apiRouter.get(
   })
 );
 
+apiRouter.get(
+  "/clients/check-nit",
+  asyncRoute(async (request, response) => {
+    const rawNit = typeof request.query.nit === "string" ? request.query.nit.trim() : "";
+    const excludeId = typeof request.query.excludeId === "string" ? request.query.excludeId.trim() : "";
+    if (!rawNit) {
+      return response.json({ exists: false });
+    }
+    const result = await pool.query(
+      `SELECT id, name, nit FROM clients
+       WHERE (planetour_normalize_search(nit) = planetour_normalize_search($1)
+          OR LOWER(TRIM(nit)) = LOWER(TRIM($1)))
+         ${excludeId ? "AND id <> $2" : ""}
+       LIMIT 1`,
+      excludeId ? [rawNit, excludeId] : [rawNit]
+    );
+    if (result.rowCount > 0) {
+      return response.json({ exists: true, client: result.rows[0] });
+    }
+    response.json({ exists: false });
+  })
+);
+
 apiRouter.post(
   "/clients",
   requireWritable,
   asyncRoute(async (request, response) => {
     const updates = clientUpdates(request.body, { create: true });
+
+    // Validar que no se repita ninguna agencia por NIT
+    const existingClient = await pool.query(
+      `SELECT id, name, nit FROM clients
+       WHERE planetour_normalize_search(nit) = planetour_normalize_search($1)
+          OR LOWER(TRIM(nit)) = LOWER(TRIM($1))
+       LIMIT 1`,
+      [updates.nit]
+    );
+    if (existingClient.rowCount > 0) {
+      throw new HttpError(
+        409,
+        `Ya existe una agencia registrada con el NIT "${existingClient.rows[0].nit}" (${existingClient.rows[0].name}).`,
+        "DUPLICATE_NIT"
+      );
+    }
+
     const result = await pool.query(
       `INSERT INTO clients
          (id, name, type, nit, iata_code, tier, status, city, address, phone,
@@ -824,9 +864,80 @@ apiRouter.put(
   asyncRoute(async (request, response) => {
     const id = idParameter(request.params.id);
     const updates = clientUpdates(request.body);
+
+    if (updates.nit) {
+      const existingClient = await pool.query(
+        `SELECT id, name, nit FROM clients
+         WHERE (planetour_normalize_search(nit) = planetour_normalize_search($1)
+            OR LOWER(TRIM(nit)) = LOWER(TRIM($1)))
+           AND id <> $2
+         LIMIT 1`,
+        [updates.nit, id]
+      );
+      if (existingClient.rowCount > 0) {
+        throw new HttpError(
+          409,
+          `Ya existe otra agencia registrada con el NIT "${existingClient.rows[0].nit}" (${existingClient.rows[0].name}).`,
+          "DUPLICATE_NIT"
+        );
+      }
+    }
+
     const result = await pool.query(updateStatement("clients", id, updates, CLIENT_FIELDS));
     if (result.rowCount === 0) throw missingResource("Cliente");
     response.json(result.rows[0]);
+  })
+);
+
+apiRouter.delete(
+  "/clients/:id",
+  requireWritable,
+  asyncRoute(async (request, response) => {
+    const id = idParameter(request.params.id);
+    const client = await pool.connect();
+    let deletedDetails = { signatures: 0, contracts: 0, ledger: 0 };
+
+    try {
+      await client.query("BEGIN");
+      const existing = await client.query(
+        "SELECT id, name, nit FROM clients WHERE id = $1 FOR UPDATE",
+        [id]
+      );
+      if (existing.rowCount === 0) throw missingResource("Cliente");
+
+      const sigCount = await client.query(
+        "SELECT COUNT(*)::int AS count FROM signatures WHERE client_id = $1",
+        [id]
+      );
+      const contractCount = await client.query(
+        "SELECT COUNT(*)::int AS count FROM public_contracts WHERE client_id = $1",
+        [id]
+      );
+      const ledgerCount = await client.query(
+        "SELECT COUNT(*)::int AS count FROM karing_ledger WHERE client_id = $1",
+        [id]
+      );
+
+      deletedDetails = {
+        signatures: sigCount.rows[0].count,
+        contracts: contractCount.rows[0].count,
+        ledger: ledgerCount.rows[0].count
+      };
+
+      await client.query("DELETE FROM clients WHERE id = $1", [id]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    response.json({
+      success: true,
+      id,
+      deletedDetails
+    });
   })
 );
 

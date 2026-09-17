@@ -1,6 +1,13 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useApp } from "../../context/AppContext";
 import { X, UserCheck, CreditCard, Building, AlertCircle, LoaderCircle } from "lucide-react";
+
+const normalizeNit = (value) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
 
 const EMPTY_CLIENT = {
   name: "",
@@ -33,15 +40,33 @@ const createInitialData = (client) => ({
 });
 
 export const ClientFormModal = ({ clientToEdit, onClose }) => {
-  const { saveClient } = useApp();
+  const { saveClient, clients } = useApp();
 
   const [formData, setFormData] = useState(() => createInitialData(clientToEdit));
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const duplicateAgency = useMemo(() => {
+    const currentClean = normalizeNit(formData.nit);
+    if (!currentClean || currentClean.length < 3) return null;
+    return (
+      clients.find((client) => {
+        if (clientToEdit && client.id === clientToEdit.id) return false;
+        return normalizeNit(client.nit) === currentClean;
+      }) || null
+    );
+  }, [clients, clientToEdit, formData.nit]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    if (duplicateAgency) {
+      setErrorMsg(
+        `El NIT "${formData.nit}" ya pertenece a la agencia "${duplicateAgency.name}". No se permiten agencias duplicadas.`
+      );
+      return;
+    }
 
     const creditLimit = Number(formData.creditLimit);
     if (!Number.isFinite(creditLimit) || creditLimit < 0) {
@@ -75,7 +100,7 @@ export const ClientFormModal = ({ clientToEdit, onClose }) => {
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Building className="w-5 h-5 text-indigo-400" />
-            {clientToEdit ? "Editar Ficha de Cliente" : "Registrar Nuevo Cliente / Agencia"}
+            {clientToEdit ? "Actualizar Ficha de Agencia / Cliente" : "Registrar Nueva Agencia / Cliente"}
           </h2>
           <button
             type="button"
@@ -129,16 +154,31 @@ export const ClientFormModal = ({ clientToEdit, onClose }) => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">NIT / RUT *</label>
+                <div className="flex items-center justify-between">
+                  <label className="form-label">NIT / RUT *</label>
+                  {duplicateAgency && (
+                    <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider">
+                      NIT Duplicado
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={formData.nit}
                   onChange={(e) => setFormData({ ...formData, nit: e.target.value })}
                   placeholder="Ej: 900.123.456-7"
-                  className="form-input font-mono"
+                  className={`form-input font-mono ${
+                    duplicateAgency ? "border-rose-500 text-rose-200 focus:border-rose-500" : ""
+                  }`}
                   required
                   disabled={isSubmitting}
                 />
+                {duplicateAgency && (
+                  <p className="text-[11px] text-rose-400 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    Este NIT ya pertenece a &quot;{duplicateAgency.name}&quot; ({duplicateAgency.nit}).
+                  </p>
+                )}
               </div>
 
               <div className="form-group">
@@ -339,9 +379,17 @@ export const ClientFormModal = ({ clientToEdit, onClose }) => {
             <button type="button" onClick={onClose} disabled={isSubmitting} className="btn-secondary text-xs disabled:opacity-60">
               Cancelar
             </button>
-            <button type="submit" disabled={isSubmitting} className="btn-primary text-xs font-bold disabled:opacity-60">
+            <button
+              type="submit"
+              disabled={isSubmitting || Boolean(duplicateAgency)}
+              className="btn-primary text-xs font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+            >
               {isSubmitting && <LoaderCircle className="w-4 h-4 animate-spin" />}
-              {isSubmitting ? "Guardando..." : "Guardar Cliente"}
+              {isSubmitting
+                ? "Guardando..."
+                : clientToEdit
+                ? "Actualizar Agencia"
+                : "Registrar Agencia"}
             </button>
           </div>
         </form>
