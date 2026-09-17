@@ -52,23 +52,52 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr /R /C:":4000 .*LISTENING"') d
     taskkill /f /pid %%a >nul 2>nul
 )
 
-echo.
-echo [2/5] Descargando ultimos cambios desde el repositorio remoto...
-git fetch origin
-if errorlevel 1 (
-    echo [ERROR] No fue posible conectar con el repositorio remoto.
-    echo Verifica la conexion a Internet o los permisos de Git.
-    pause
-    exit /b 1
-)
+set REPO_URL=https://github.com/Nipko/agencia-crm.git
+set BRANCH=main
 
-git pull origin main
+echo.
+echo [2/5] Verificando repositorio y descargando ultimos cambios...
+if not exist ".git" (
+    echo [INFO] No se detecto configuracion Git en esta carpeta.
+    echo Conectando automaticamente con %REPO_URL% ...
+    git init
+    if errorlevel 1 (
+        echo [ERROR] No fue posible inicializar Git.
+        pause
+        exit /b 1
+    )
+    git remote add origin %REPO_URL%
+    git fetch origin %BRANCH%
+    if errorlevel 1 (
+        echo [ERROR] No fue posible descargar del repositorio %REPO_URL%.
+        echo Verifica la conexion a Internet.
+        pause
+        exit /b 1
+    )
+    git branch -M %BRANCH%
+    git reset --hard origin/%BRANCH%
+    git branch --set-upstream-to=origin/%BRANCH% %BRANCH%
+) else (
+    git remote get-url origin >nul 2>nul
+    if errorlevel 1 (
+        echo [INFO] Configurando origen remoto: %REPO_URL% ...
+        git remote add origin %REPO_URL%
+    )
+    git fetch origin %BRANCH%
+    if errorlevel 1 (
+        echo [ERROR] No fue posible conectar con el repositorio remoto.
+        echo Verifica la conexion a Internet o los permisos de Git.
+        pause
+        exit /b 1
+    )
+    git reset --hard origin/%BRANCH%
+)
 if errorlevel 1 (
-    echo [ERROR] Hubo un error al descargar los cambios con git pull.
-    echo Revisa si hay conflictos locales o cambios sin guardar.
+    echo [ERROR] Hubo un error al actualizar los archivos con Git.
     pause
     exit /b 1
 )
+echo [OK] Codigo actualizado correctamente a la ultima version de %BRANCH%.
 
 echo.
 echo [3/5] Actualizando dependencias del proyecto...

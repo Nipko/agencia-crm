@@ -78,20 +78,53 @@ try {
 
 Start-Sleep -Seconds 1
 
+$RepoUrl = "https://github.com/Nipko/agencia-crm.git"
+
 # 6. Descargar últimos cambios con Git
 Write-Host ""
-Write-Host "[2/5] Descargando ultimos cambios de la rama '$Branch'..." -ForegroundColor Green
-git fetch origin
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] No fue posible conectar con el repositorio remoto 'origin'." -ForegroundColor Red
-    exit 1
+Write-Host "[2/5] Verificando repositorio y descargando ultimos cambios de '$Branch'..." -ForegroundColor Green
+
+if (-not (Test-Path (Join-Path $ProjectRoot ".git"))) {
+    Write-Host "[INFO] No se encontro la carpeta .git en esta instalacion." -ForegroundColor Yellow
+    Write-Host "Vinculando automaticamente con $RepoUrl..." -ForegroundColor Cyan
+    git init
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] No fue posible inicializar Git." -ForegroundColor Red
+        exit 1
+    }
+    git remote add origin $RepoUrl
+    git fetch origin $Branch
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] No fue posible conectar con el repositorio $RepoUrl." -ForegroundColor Red
+        exit 1
+    }
+    git branch -M $Branch
+    git reset --hard "origin/$Branch"
+    git branch --set-upstream-to="origin/$Branch" $Branch
+} else {
+    try {
+        $origin = git remote get-url origin 2>$null
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($origin)) {
+            Write-Host "[INFO] Configurando origen remoto: $RepoUrl..." -ForegroundColor Yellow
+            git remote add origin $RepoUrl
+        }
+    } catch {
+        git remote add origin $RepoUrl
+    }
+
+    git fetch origin $Branch
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] No fue posible conectar con el repositorio remoto '$RepoUrl'." -ForegroundColor Red
+        exit 1
+    }
+    git reset --hard "origin/$Branch"
 }
 
-git pull origin $Branch
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] Fallo git pull. Revisa posibles conflictos locales o cambios pendientes." -ForegroundColor Red
+    Write-Host "[ERROR] Hubo un error al sincronizar con Git." -ForegroundColor Red
     exit 1
 }
+Write-Host "[OK] Codigo sincronizado con la ultima version de '$Branch'." -ForegroundColor Green
 
 # 7. Actualizar dependencias
 Write-Host ""

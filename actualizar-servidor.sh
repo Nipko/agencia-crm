@@ -32,10 +32,28 @@ elif command -v pm2 >/dev/null 2>&1 && pm2 list | grep -q "planetour-crm"; then
     pm2 stop planetour-crm || true
 fi
 
+REPO_URL="https://github.com/Nipko/agencia-crm.git"
+BRANCH="main"
+
 echo ""
-echo "[2/5] Descargando ultimos cambios desde el repositorio remoto..."
-git fetch origin
-git pull origin main
+echo "[2/5] Verificando repositorio y descargando ultimos cambios..."
+if [ ! -d ".git" ]; then
+    echo "[INFO] No se encontro la carpeta .git en esta instalacion."
+    echo "Vinculando con repositorio oficial: $REPO_URL..."
+    git init
+    git remote add origin "$REPO_URL"
+    git fetch origin "$BRANCH"
+    git branch -M "$BRANCH"
+    git reset --hard "origin/$BRANCH"
+    git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
+else
+    if ! git remote get-url origin >/dev/null 2>&1; then
+        echo "[INFO] Configurando origen remoto: $REPO_URL..."
+        git remote add origin "$REPO_URL"
+    fi
+    git fetch origin "$BRANCH"
+    git reset --hard "origin/$BRANCH"
+fi
 
 echo ""
 echo "[3/5] Actualizando dependencias de Node.js..."
