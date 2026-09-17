@@ -131,3 +131,32 @@ npm run build
 - Logs del servicio: `logs\PlanetourCRM.out.log`, `logs\PlanetourCRM.err.log` y el log del wrapper.
 - Si la base no responde, revisa el servicio PostgreSQL y las variables `PG*`.
 - Reiniciar el servicio invalida las sesiones abiertas porque las sesiones se guardan en memoria; los usuarios deberán volver a iniciar sesión.
+
+## Actualización del Servidor
+
+Para actualizar el servidor con los últimos cambios del repositorio sin alterar el archivo `.env` ni las contraseñas existentes:
+
+### En Windows
+Ejecuta con doble clic o desde la terminal:
+
+```text
+actualizar-servidor.bat
+```
+
+El script se encarga de:
+1. Detener de forma segura el servicio o proceso activo en el puerto 4000.
+2. Descargar el código más reciente mediante `git pull origin main`.
+3. Instalar o actualizar dependencias con `npm ci`.
+4. Ejecutar las migraciones y comprobaciones de base de datos (`npm run db:setup`).
+5. Compilar la aplicación para producción (`npm run build`).
+6. Reiniciar el servicio de Planetour CRM.
+
+### En Linux
+Ejecuta:
+
+```bash
+chmod +x actualizar-servidor.sh
+./actualizar-servidor.sh
+```
+
+El proceso es completamente no destructivo para la configuración: el archivo `.env`, los datos de PostgreSQL y las contraseñas se conservan íntegros.
