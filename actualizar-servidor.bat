@@ -75,6 +75,8 @@ if not exist ".git" (
         exit /b 1
     )
     git branch -M %BRANCH%
+    attrib -r /s "scripts\windows\*" >nul 2>nul
+    if exist "scripts\windows\Servicio-Planetour.ps1" del /f /q "scripts\windows\Servicio-Planetour.ps1" >nul 2>nul
     git reset --hard origin/%BRANCH%
     git branch --set-upstream-to=origin/%BRANCH% %BRANCH%
 ) else (
@@ -90,6 +92,8 @@ if not exist ".git" (
         pause
         exit /b 1
     )
+    attrib -r /s "scripts\windows\*" >nul 2>nul
+    if exist "scripts\windows\Servicio-Planetour.ps1" del /f /q "scripts\windows\Servicio-Planetour.ps1" >nul 2>nul
     git reset --hard origin/%BRANCH%
 )
 if errorlevel 1 (
