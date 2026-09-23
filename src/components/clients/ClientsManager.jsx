@@ -9,7 +9,8 @@ import {
   Edit,
   Trash2,
   AlertTriangle,
-  LoaderCircle
+  LoaderCircle,
+  FileSpreadsheet
 } from "lucide-react";
 import { ClientDetailModal } from "./ClientDetailModal";
 import { ClientFormModal } from "./ClientFormModal";
@@ -30,18 +31,52 @@ const normalizeSearch = (value) =>
 export const ClientsManager = () => {
   const {
     clients,
+    signatures = [],
+    contracts = [],
     searchTerm,
     setSelectedClientForModal,
     selectedClientForModal,
     canManageClients,
-    deleteClient
+    deleteClient,
+    addToast
   } = useApp();
   const [filterType, setFilterType] = useState("ALL"); // ALL | AGENCY | GOVERNMENT
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [clientToEdit, setClientToEdit] = useState(null);
   const [clientToDelete, setClientToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const deferredSearchTerm = useDeferredValue(searchTerm);
+
+  const handleExportExcel = async () => {
+    const dataToExport = filteredClients.length > 0 ? filteredClients : clients;
+    if (!dataToExport || dataToExport.length === 0) {
+      addToast?.("warning", "No hay agencias disponibles para exportar.");
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      const { exportAgenciesToExcel } = await import("../../utils/exportAgenciesExcel");
+      const isFiltered = dataToExport.length < clients.length;
+      const result = await exportAgenciesToExcel({
+        clients: dataToExport,
+        signatures,
+        contracts
+      });
+      addToast?.(
+        "success",
+        `Archivo Excel generado exitosamente: ${result.fileName} (${result.count} ${
+          isFiltered ? "agencias filtradas" : "agencias registradas"
+        }).`
+      );
+    } catch (error) {
+      console.error("Error al exportar a Excel:", error);
+      addToast?.("error", error?.message || "Ocurrió un error al generar el documento Excel.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const clientCounts = useMemo(
     () =>
@@ -83,17 +118,39 @@ export const ClientsManager = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setClientToEdit(null);
-            setShowCreateModal(true);
-          }}
-          disabled={!canManageClients}
-          title={!canManageClients ? "Tu rol no permite gestionar clientes" : undefined}
-          className="btn-primary text-xs font-bold shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Plus className="w-4 h-4" /> Registrar Nuevo Cliente
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            onClick={handleExportExcel}
+            disabled={isExporting || clients.length === 0}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all shadow-sm shadow-emerald-950/20 hover:border-emerald-400/50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            title={`Descargar ${filteredClients.length} ${
+              filteredClients.length === 1 ? "agencia" : "agencias"
+            } en formato Excel oficial (.xlsx)`}
+          >
+            {isExporting ? (
+              <LoaderCircle className="w-4 h-4 animate-spin text-emerald-400" />
+            ) : (
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            )}
+            <span>
+              {isExporting
+                ? "Generando..."
+                : `Descargar Excel (${filteredClients.length})`}
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              setClientToEdit(null);
+              setShowCreateModal(true);
+            }}
+            disabled={!canManageClients}
+            title={!canManageClients ? "Tu rol no permite gestionar clientes" : undefined}
+            className="btn-primary text-xs font-bold shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-4 h-4" /> Registrar Nuevo Cliente
+          </button>
+        </div>
       </div>
 
       {/* Filter Tabs & Bar */}
